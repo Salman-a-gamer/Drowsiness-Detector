@@ -25,9 +25,10 @@ The toolchain is OpenCV, MediaPipe, PySide6, NumPy, Piper, mss and unittest. Fon
 .\.venv\Scripts\python -m pip install -r requirements-build.txt
 .\.venv\Scripts\python tools/build_app.py
 .\.venv\Scripts\python tools/make_demo.py
+.\.venv\Scripts\python tools/make_readme_preview.py
 ```
 
-The desktop build is `dist/WakeyMonster/WakeyMonster.exe`; preserve the entire folder. Build uses PyInstaller windowed onedir mode. The demo uses simulated eye readings and original/generated media, never a personal webcam recording. Portable GitHub CLI may live in ignored `.tools/`. Requested public repo: Salman-a-gamer/Drowsiness-Detector (GitHub names cannot contain spaces).
+The desktop build is `dist/DrowsinessDetector/DrowsinessDetector.exe`; preserve the entire folder. Build uses PyInstaller windowed onedir mode. Demos use simulated eye readings and original/generated media, never a personal webcam recording. README preview is a six-second GIF/MP4 with 1.5 seconds of the home UI then the scare. Portable GitHub CLI may live in ignored `.tools/`. Public repo: Salman-a-gamer/Drowsiness-Detector.
 
 ## Style and invariants
 
@@ -36,6 +37,8 @@ Use four-space indentation, snake_case functions/modules and PascalCase classes.
 Webcam frames are processed locally without recording/upload. Desktop glitch pixels remain in memory briefly. Key state polling never logs keys. Window titles remain local without an activity history, though contextual WAVs can contain them; disclose that in privacy docs. Unknown placeholder facts are skipped. `{seconds}` aliases actual `{closed_seconds}`. Keep asset licenses and avoid uploading user recordings/music/images or credentials.
 
 ## Testing
+
+Startup camera scan must run off the UI thread. Keep at least four phrase rows visible and let short/high-DPI windows scroll instead of squeezing controls. Play exactly one background source plus speech; never mix selected BGM with the procedural fallback. Voice effect version changes must invalidate cache hashes.
 
 Use unittest test_*.py for timing, cooldown, migration, phrase selection, cache invalidation and audio. No coverage threshold. Run offscreen integration checks with PYTHONPATH set:
 

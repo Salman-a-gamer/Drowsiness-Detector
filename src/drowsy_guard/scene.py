@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QApplication, QCheckBox, QColorDialog, QDialog, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton,
     QSlider, QVBoxLayout,
-    QScrollArea, QWidget, QTabWidget,
+    QScrollArea, QWidget, QTabWidget, QSizePolicy,
 )
 
 from .config import PROJECT, AUDIO_TYPES, IMAGE_TYPES, app_data_dir, choose_asset, load_config, save_config
@@ -54,7 +54,7 @@ class ScenePanel(QDialog):
     preparation_changed = Signal(bool)
     def __init__(self, parent=None, data_dir: Path | None = None):
         super().__init__(parent)
-        self.setWindowTitle("WakeyMonster — manual scene and phrases")
+        self.setWindowTitle("Drowsiness Detector — scene studio")
         self.resize(830, 740)
         self.data_dir = data_dir or app_data_dir()
         self.settings_path = self.data_dir / "config.json"
@@ -106,10 +106,14 @@ class ScenePanel(QDialog):
         ):
             row = QHBoxLayout()
             field = QLineEdit(self.settings[key])
+            field.setCursorPosition(0)
+            field.setToolTip(self.settings[key])
+            field.textChanged.connect(field.setToolTip)
             field.textChanged.connect(lambda value, key=key: self.setting_changed(key, value))
             browse = QPushButton("Browse")
+            browse.setFixedWidth(104)
             browse.clicked.connect(lambda checked=False, field=field, filters=filters: self.browse(field, filters))
-            row.addWidget(field)
+            row.addWidget(field, 1)
             row.addWidget(browse)
             form.addRow(label, row)
         color = QPushButton("Choose background color")
@@ -119,10 +123,14 @@ class ScenePanel(QDialog):
                            ("music_folder", "Music folder")):
             row = QHBoxLayout()
             field = QLineEdit(self.settings[key])
+            field.setCursorPosition(0)
+            field.setToolTip(self.settings[key])
+            field.textChanged.connect(field.setToolTip)
             field.textChanged.connect(lambda value, key=key: self.setting_changed(key, value))
             button = QPushButton("Folder…")
+            button.setFixedWidth(104)
             button.clicked.connect(lambda checked=False, field=field: self.browse_folder(field))
-            row.addWidget(field)
+            row.addWidget(field, 1)
             row.addWidget(button)
             form.addRow(label, row)
         for key, label in (("flashing", "Irregular flashing / black frames"),
@@ -132,8 +140,7 @@ class ScenePanel(QDialog):
             check.setChecked(self.settings[key])
             check.toggled.connect(lambda value, key=key: self.setting_changed(key, value))
             form.addRow(check)
-        for key, label in (("music_volume", "Music volume"), ("speech_volume", "Voice volume"),
-                           ("effects_volume", "Drone / heartbeat / static volume")):
+        for key, label in (("music_volume", "Background audio volume"), ("speech_volume", "Voice volume")):
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setRange(0, 100)
             slider.setValue(self.settings[key])
@@ -147,6 +154,8 @@ class ScenePanel(QDialog):
         scene_layout.addWidget(settings_scroll)
         phrase_layout.addWidget(QLabel('Every phrase used is listed here. Uncheck all for a scene with music only.'))
         self.phrase_list = QListWidget()
+        self.phrase_list.setUniformItemSizes(True)
+        self.phrase_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.phrase_list.currentItemChanged.connect(self.select_item)
         self.phrase_list.itemChanged.connect(self.toggle_phrase)
         phrase_layout.addWidget(self.phrase_list, 1)
@@ -191,6 +200,12 @@ class ScenePanel(QDialog):
         self.effects_player, self.effects_output = self.create_player()
         self.draft_player, self.draft_output = self.create_player()
         self.refresh_list()
+        row_height = self.phrase_list.sizeHintForRow(0)
+        self.phrase_list.setMinimumHeight(4 * row_height + 24)
+        for control in self.findChildren(QPushButton) + self.findChildren(QLineEdit):
+            control.setMinimumHeight(control.fontMetrics().height() + 24)
+            control.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        form.setVerticalSpacing(10)
         self.font_family = "Arial"
         self.load_font()
         self.persist()
@@ -488,12 +503,14 @@ class ScenePanel(QDialog):
         captures.clear()
         self.music_output.setVolume(self.settings["music_volume"] / 100)
         self.speech_output.setVolume(self.settings["speech_volume"] / 100)
-        self.effects_output.setVolume(self.settings["effects_volume"] / 100)
-        self.music_player.setSource(QUrl.fromLocalFile(assets["music"]))
+        # Exactly one background source: chosen recording OR generated fallback.
+        music = Path(assets["music"]) if assets["music"] else None
+        background_audio = music if music and music.is_file() else build_soundscape(self.cache_folder)
+        self.effects_player.stop()
+        self.effects_player.setSource(QUrl())
+        self.music_player.setSource(QUrl.fromLocalFile(str(background_audio)))
         self.music_player.setLoops(QMediaPlayer.Loops.Infinite)
         self.speech_player.setSource(QUrl.fromLocalFile(str(speech)) if speech else QUrl())
-        self.effects_player.setSource(QUrl.fromLocalFile(str(self.cache_folder / "soundscape-v1.wav")))
-        self.effects_player.play()
         self.music_timer.start(MUSIC_DELAY_MS)
         if speech:
             self.voice_timer.start(VOICE_DELAY_MS)

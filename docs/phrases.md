@@ -17,3 +17,7 @@ All of these lines are visible in Scene studio. Unknown placeholders are skipped
 - Five more minutes... and I'll be closer.
 - Good morning. Did you miss me?
 - Don't worry. I'll watch over you. Forever.
+- {app} can't hide you from me.
+- Keep staring at {app}. I'll stand behind you.
+- I was inside {app} before you opened it.
+- You opened {app}. You let me in.

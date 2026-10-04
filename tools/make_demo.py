@@ -36,7 +36,7 @@ QFontDatabase.addApplicationFont('C:/Windows/Fonts/arial.ttf')
 folder = PROJECT/'demo'
 folder.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(dir=PROJECT/'cache') as temp:
-    window = DrowsyGuardWindow(data_dir=Path(temp))
+    window = DrowsyGuardWindow(data_dir=Path(temp), scan_on_start=False)
     window.resize(1160, 690)
     window.scene_panel.settings['desktop_glitch'] = False
     window.scene_panel.settings['music'] = ''
@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory(dir=PROJECT/'cache') as temp:
     for index in range(720):
         second = index/12
         if second < 8:
-            shot, caption = snapshots[0], 'WakeyMonster • local drowsiness detection for Windows'
+            shot, caption = snapshots[0], 'Drowsiness Detector • local drowsiness detection for Windows'
         elif second < 17:
             shot, caption = snapshots[1], 'Start monitoring, calibrate open eyes, and choose a closure duration'
         elif second < 24:

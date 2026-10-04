@@ -12,7 +12,7 @@ import numpy as np
 from .config import default_phrases
 
 DEFAULT_PHRASES = [phrase["text"] for phrase in default_phrases() if "{" not in phrase["text"]]
-EFFECT = "horror-v2-stereo"
+EFFECT = "horror-v3-breath-growl"
 
 
 def resolve_phrase(text: str, context: dict[str, str]) -> str | None:
@@ -53,7 +53,7 @@ def creepy_effect(samples: np.ndarray, rate: int) -> np.ndarray:
     slowed = np.interp(np.arange(0, len(samples), 0.73), np.arange(len(samples)), samples)
     time = np.arange(len(slowed)) / rate
     growl = np.interp(np.arange(len(slowed)) * 0.73, np.arange(len(slowed)), slowed)
-    dry = np.tanh((slowed + 0.30 * growl) * 1.8) * (0.83 + 0.17 * np.sin(2 * np.pi * 37 * time))
+    dry = np.tanh((slowed + 0.42 * growl) * 2.1) * (0.76 + 0.24 * np.sin(2 * np.pi * 31 * time))
     mixed = np.pad(dry, (0, int(rate * 0.45)))
     for delay, gain in ((0.09, 0.32), (0.19, 0.22), (0.34, 0.12)):
         offset = int(rate * delay)
@@ -66,13 +66,17 @@ def creepy_effect(samples: np.ndarray, rate: int) -> np.ndarray:
     if fade:
         mixed[:fade] *= np.linspace(0, 1, fade)
         mixed[-fade:] *= np.linspace(1, 0, fade)
+    # A breath layer follows the syllables; it is not a second music track.
+    envelope = np.convolve(np.abs(mixed), np.ones(221) / 221, mode="same")
+    noise = np.random.default_rng(41).normal(0, 1, len(mixed))
+    breath = (noise - np.convolve(noise, np.ones(9) / 9, mode="same")) * envelope
     whisper = np.zeros(len(mixed))
     delay = int(rate * 0.065)
     if len(mixed) > delay:
-        whisper[delay:] = np.diff(mixed[:-delay], prepend=0)
+        whisper[delay:] = breath[:-delay] + np.diff(mixed[:-delay], prepend=0) * 0.3
     pan = np.sin(np.arange(len(mixed)) / rate * 2 * np.pi * 0.65)
-    stereo = np.column_stack((mixed + whisper * (1 - pan) * 0.14,
-                              mixed + whisper * (1 + pan) * 0.14))
+    stereo = np.column_stack((mixed + whisper * (1 - pan) * 0.24,
+                              mixed + whisper * (1 + pan) * 0.24))
     if fade:
         stereo[:fade] *= np.linspace(0, 1, fade)[:, None]
         stereo[-fade:] *= np.linspace(1, 0, fade)[:, None]

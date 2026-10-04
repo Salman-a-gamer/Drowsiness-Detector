@@ -77,7 +77,7 @@ def load_config(folder: Path | None = None) -> dict:
                   music_volume=25, speech_volume=80, effects_volume=35, desktop_glitch=True,
                   random_assets=True, monster_folder=str(image_folder), background_folder="",
                   music_folder=str(music_folder),
-                  phrase_catalog_version=2, closure_duration=1.5, cooldown=20.0, camera_index=0, ear_threshold=0.21,
+                  phrase_catalog_version=3, closure_duration=1.5, cooldown=20.0, camera_index=0, ear_threshold=0.21,
                   phrases=default_phrases())
     source = folder / "config.json"
     saved = {}
@@ -92,15 +92,15 @@ def load_config(folder: Path | None = None) -> dict:
         pass
     config["phrases"] = normalize_phrases(config["phrases"])
     version = saved.get('phrase_catalog_version', 0) if isinstance(saved, dict) else 0
-    if not isinstance(version, int) or version < 2:
+    if not isinstance(version, int) or version < 3:
         existing = {entry['text'] for entry in config['phrases']}
         additions = [entry for entry in default_phrases() if entry['text'] not in existing]
-        if config['phrases'] and not any(entry['enabled'] for entry in config['phrases']):
+        if not any(entry['enabled'] for entry in config['phrases']):
             for entry in additions:
                 entry['enabled'] = False
         config['phrases'].extend(additions)
         config['phrases'] = normalize_phrases(config['phrases'])
-        config['phrase_catalog_version'] = 2
+        config['phrase_catalog_version'] = 3
     # Repair paths when the user reorganizes supplied assets into these folders.
     for key, directories in (("image", [image_folder]), ("music", [music_folder])):
         old = Path(config[key])

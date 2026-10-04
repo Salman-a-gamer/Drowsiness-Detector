@@ -45,6 +45,17 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(len({phrase["id"] for phrase in phrases}), 3)
         self.assertTrue(all(phrase["audio_file"] is None for phrase in phrases))
 
+    def test_new_catalog_preserves_all_disabled_and_custom_recording(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as temporary:
+            root = Path(temporary)
+            (root / 'config.json').write_text(json.dumps(dict(phrase_catalog_version=2,
+                phrases=[dict(id='mine', text='My phrase', enabled=False, audio_file='mine.wav')])))
+            config = load_config(root)
+            self.assertEqual(config['phrase_catalog_version'], 3)
+            self.assertFalse(any(p['enabled'] for p in config['phrases']))
+            self.assertEqual(config['phrases'][0]['audio_file'], 'mine.wav')
+            self.assertGreaterEqual(sum('{app}' in p['text'] for p in config['phrases']), 5)
+
     def test_bad_config_does_not_crash_and_text_is_limited(self):
         self.assertEqual(normalize_phrases([None, {}, dict(text=4)]), [])
         self.assertEqual(len(normalize_phrases([dict(text="x" * 100)])[0]["text"]), 80)

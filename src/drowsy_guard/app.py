@@ -8,7 +8,7 @@ import cv2
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDialog,
-    QFormLayout, QHBoxLayout, QLabel, QMainWindow, QPushButton, QTabWidget, QVBoxLayout, QWidget)
+    QFormLayout, QHBoxLayout, QLabel, QMainWindow, QPushButton, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QScrollArea)
 
 from .activity import active_window_title
 from .camera import CameraWorker, CameraScan
@@ -34,9 +34,9 @@ QScrollArea { border: none; } QCheckBox { padding: 4px; }
 
 
 class DrowsyGuardWindow(QMainWindow):
-    def __init__(self, model_path=None, data_dir=None):
+    def __init__(self, model_path=None, data_dir=None, *, scan_on_start=True):
         super().__init__()
-        self.setWindowTitle('WakeyMonster')
+        self.setWindowTitle('Drowsiness Detector')
         self.resize(1100, 800)
         self.setStyleSheet(STYLE)
         self.model_path = Path(model_path or PROJECT / 'models/face_landmarker.task')
@@ -54,7 +54,7 @@ class DrowsyGuardWindow(QMainWindow):
         root = QVBoxLayout()
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(16)
-        title = QLabel('WakeyMonster')
+        title = QLabel('Drowsiness Detector')
         title.setObjectName('title')
         root.addWidget(title)
         privacy = QLabel('LOCAL BY DESIGN  •  Webcam video is never saved or uploaded. Speech stays on your PC.')
@@ -136,10 +136,19 @@ class DrowsyGuardWindow(QMainWindow):
         root.addWidget(self.status)
         container = QWidget()
         container.setLayout(root)
-        self.setCentralWidget(container)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(container)
+        self.setCentralWidget(scroll)
         self.activity_timer = QTimer(self)
         self.activity_timer.timeout.connect(self.poll_activity)
         self.activity_timer.start(1000)
+        # Scan after the event loop starts so opening the window stays responsive.
+        if scan_on_start:
+            QTimer.singleShot(0, self.scan_cameras)
+        for control in self.findChildren(QPushButton) + self.findChildren(QComboBox) + self.findChildren(QDoubleSpinBox):
+            control.setMinimumHeight(control.fontMetrics().height() + 24)
+            control.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
     def poll_activity(self):
         title = active_window_title()
@@ -273,6 +282,9 @@ class DrowsyGuardWindow(QMainWindow):
         if self.running or (self.scanner and self.scanner.isRunning()):
             return
         self.scan_camera_button.setEnabled(False)
+        self.start_button.setEnabled(False)
+        self.camera_select.setEnabled(False)
+        self.status.setText('Scanning local cameras…')
         self.scanner = CameraScan(self)
         self.scanner.found.connect(self.cameras_found)
         self.scanner.start()
@@ -280,12 +292,15 @@ class DrowsyGuardWindow(QMainWindow):
     def cameras_found(self, indexes):
         previous = self.camera_select.currentData()
         self.camera_select.clear()
-        for index in indexes or [0]:
+        for index in indexes:
             self.camera_select.addItem(f'Camera {index}', index)
         selected = self.camera_select.findData(previous)
         self.camera_select.setCurrentIndex(max(0, selected))
         self.scan_camera_button.setEnabled(True)
-        self.status.setText(f'Found {len(indexes)} camera(s).')
+        self.start_button.setEnabled(bool(indexes))
+        self.camera_select.setEnabled(bool(indexes))
+        self.status.setText(f'Found {len(indexes)} camera(s).' if indexes else
+                            'No camera available. Connect a camera, check Windows permissions, then Find cameras. Test scare still works.')
 
     def choose_model(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Face model', str(PROJECT), 'MediaPipe (*.task)')
@@ -306,13 +321,21 @@ class DrowsyGuardWindow(QMainWindow):
 
 def run(model_path=None):
     app = QApplication(sys.argv)
-    app.setApplicationName('WakeyMonster')
+    app.setApplicationName('Drowsiness Detector')
     testing = '--self-test' in sys.argv
     data_dir = Path(sys.argv[sys.argv.index('--data-dir')+1]) if '--data-dir' in sys.argv else None
-    window = DrowsyGuardWindow(model_path, data_dir=data_dir)
+    window = DrowsyGuardWindow(model_path, data_dir=data_dir, scan_on_start=not testing)
     if testing:
         import json
         app.setQuitOnLastWindowClosed(False)
+        window.activity_timer.stop()
+        window.scene_panel.context_timer.stop()
+        window.scene_panel.context = {'time': '3:00 AM'}
+        window.scene_panel.settings.update(image=str(PROJECT / 'assets/monster.svg'),
+            voice=str(PROJECT / 'models/voices/en_US-ryan-medium.onnx'),
+            font=str(PROJECT / 'assets/fonts/Creepster-Regular.ttf'), random_assets=False)
+        window.scene_panel.load_font()
+        window.scene_panel.schedule_speech()
         deadline = time.monotonic()+90
         check = QTimer()
         def verify():
@@ -330,11 +353,11 @@ def run(model_path=None):
                 assert window.scene_panel.font_family == 'Creepster'
                 window.scene_panel.settings['desktop_glitch'] = False
                 window.scene_panel.preview_scene()
-                assert window.scene_panel.overlays
+                assert window.scene_panel.overlays, 'Overlay did not open: ' + window.scene_panel.message.text()
                 window.scene_panel.dismiss_scene()
                 result['passed'] = True
             except Exception as exc:
-                result['error'] = str(exc)
+                result['error'] = f'{type(exc).__name__}: {exc}'
             window.scene_panel.data_dir.mkdir(parents=True, exist_ok=True)
             (window.scene_panel.data_dir/'self-test.json').write_text(json.dumps(result), encoding='utf-8')
             window.close()

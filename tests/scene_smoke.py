@@ -54,9 +54,14 @@ def main():
                         assert audio.getnchannels() == 2
                         assert 0 < audio.getnframes() / audio.getframerate() <= 12.5
                 events = []
+                # A chosen BGM must replace the procedural bed, never layer it.
+                panel.settings['random_assets'] = False
+                panel.settings['music'] = str(panel.cache_folder / 'soundscape-v1.wav')
                 panel.speech_player.playbackStateChanged.connect(
                     lambda state: events.append((time.monotonic(), state)))
                 panel.preview_scene()
+                assert panel.effects_player.source().isEmpty()
+                assert Path(panel.music_player.source().toLocalFile()) == Path(panel.settings['music'])
                 assert panel.overlays, (panel.message.text(), panel.ready, panel.prepared_context, panel.current_context())
                 first = panel.last_phrase
                 started = time.monotonic()
@@ -94,6 +99,11 @@ def main():
                 assert panel.choose_line() == ('', None), 'Unchecked phrases must never use a hidden fallback'
                 panel.preview_scene()
                 assert panel.overlays and not panel.voice_timer.isActive()
+                panel.dismiss_scene()
+                panel.settings['music'] = ''
+                panel.preview_scene()
+                assert panel.music_player.source().toLocalFile().endswith('soundscape-v1.wav')
+                assert panel.effects_player.source().isEmpty()
                 panel.dismiss_scene()
                 panel.new_phrase()
                 panel.phrase_text.setText("I am right behind you.")

@@ -14,7 +14,9 @@
 
 ## Behavior
 
-Settings migrate from the earlier project-local config into APPDATA. Version 2 adds all requested phrases without deleting custom phrases. Existing all-disabled preferences remain disabled. Every playable line appears in the list. If no enabled/resolved audio is available, the scene has no speech. When only the previously spoken line is eligible, that scene is silent; the next scene may speak it again.
+Settings migrate from the earlier project-local config into APPDATA. Catalog version 3 includes 19 defaults and adds four app-context lines without deleting custom phrases. Existing all-disabled preferences remain disabled. Every playable line appears in the list, with room for at least four rows. If no enabled/resolved audio is available, the scene has no speech. When only the previously spoken line is eligible, that scene is silent; the next scene may speak it again.
+
+Cameras scan on startup in a worker. Monitoring is disabled while scanning or when no usable cameras are found; manual scare testing remains available. The selected BGM replaces the generated horror bed. Without a usable BGM, the generated bed is the sole background audio. The voice is a separate track; there is no extra ambient player.
 
 `{app}` is the latest external foreground window title, shortened to 32 characters to keep lines within 80 characters. `{seconds}` is actual observed closure rounded to one decimal; `{closed_seconds}` is equivalent. Test scare never invents closure duration. Resolved text over 80 characters is skipped. Titles may survive in locally cached audio, which you can delete from APPDATA/WakeyMonster/cache.
 

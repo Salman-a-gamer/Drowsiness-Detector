@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 from PySide6.QtCore import QRectF, QTimer, Qt, Signal
-from PySide6.QtGui import QColor, QCursor, QFont, QImage, QPainter, QPixmap
+from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QWidget
 
 
@@ -128,6 +128,9 @@ class MonsterOverlay(QWidget):
         painter.setFont(font)
         bounds = self.rect().adjusted(25, int(self.height() * 0.79), -25, -10)
         flags = Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap
+        while font.pixelSize() > 16 and QFontMetrics(font).boundingRect(bounds, int(flags), self.phrase).height() > bounds.height():
+            font.setPixelSize(font.pixelSize() - 2)
+        painter.setFont(font)
         painter.setPen(QColor("#000000"))
         painter.drawText(bounds.translated(2, 2), flags, self.phrase)
         painter.setPen(QColor("#e50000"))

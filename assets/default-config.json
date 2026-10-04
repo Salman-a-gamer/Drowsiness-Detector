@@ -14,6 +14,10 @@
     {"id": "p12", "text": "You looked so peaceful. I almost didn't wake you.", "enabled": true, "audio_file": null},
     {"id": "p13", "text": "Five more minutes... and I'll be closer.", "enabled": true, "audio_file": null},
     {"id": "p14", "text": "Good morning. Did you miss me?", "enabled": true, "audio_file": null},
-    {"id": "p15", "text": "Don't worry. I'll watch over you. Forever.", "enabled": true, "audio_file": null}
+    {"id": "p15", "text": "Don't worry. I'll watch over you. Forever.", "enabled": true, "audio_file": null},
+    {"id": "p16", "text": "{app} can't hide you from me.", "enabled": true, "audio_file": null},
+    {"id": "p17", "text": "Keep staring at {app}. I'll stand behind you.", "enabled": true, "audio_file": null},
+    {"id": "p18", "text": "I was inside {app} before you opened it.", "enabled": true, "audio_file": null},
+    {"id": "p19", "text": "You opened {app}. You let me in.", "enabled": true, "audio_file": null}
   ]
 }

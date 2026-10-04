@@ -15,3 +15,4 @@ Backgound/
 Characters/
 demo/*.mp4
 !demo/demo-60s.mp4
+!demo/readme-preview.mp4
