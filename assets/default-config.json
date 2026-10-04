@@ -1,0 +1,19 @@
+{
+  "phrases": [
+    {"id": "p01", "text": "Wakey wakey, lil bro.", "enabled": true, "audio_file": null},
+    {"id": "p02", "text": "Rise and shine. I've been waiting.", "enabled": true, "audio_file": null},
+    {"id": "p03", "text": "I can see you.", "enabled": true, "audio_file": null},
+    {"id": "p04", "text": "Did you think I wasn't watching?", "enabled": true, "audio_file": null},
+    {"id": "p05", "text": "Your eyes were closed for {seconds} seconds. I counted.", "enabled": true, "audio_file": null},
+    {"id": "p06", "text": "It's {time}. You should be asleep. Why aren't you?", "enabled": true, "audio_file": null},
+    {"id": "p07", "text": "Don't stop working. I like watching you work.", "enabled": true, "audio_file": null},
+    {"id": "p08", "text": "I was right behind you.", "enabled": true, "audio_file": null},
+    {"id": "p09", "text": "Sleep is where I live.", "enabled": true, "audio_file": null},
+    {"id": "p10", "text": "Close your eyes again. I dare you.", "enabled": true, "audio_file": null},
+    {"id": "p11", "text": "Why are you still in {app}? Look at me instead.", "enabled": true, "audio_file": null},
+    {"id": "p12", "text": "You looked so peaceful. I almost didn't wake you.", "enabled": true, "audio_file": null},
+    {"id": "p13", "text": "Five more minutes... and I'll be closer.", "enabled": true, "audio_file": null},
+    {"id": "p14", "text": "Good morning. Did you miss me?", "enabled": true, "audio_file": null},
+    {"id": "p15", "text": "Don't worry. I'll watch over you. Forever.", "enabled": true, "audio_file": null}
+  ]
+}

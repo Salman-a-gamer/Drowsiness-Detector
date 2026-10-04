@@ -1,0 +1,6 @@
+* text=auto
+*.png binary
+*.ttf binary
+*.mp4 binary
+# Preserve upstream font-license whitespace without weakening source checks.
+assets/fonts/OFL.txt whitespace=-blank-at-eol

@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+cache/
+settings/
+models/voices/
+models/*.task
+.tools/
+build/
+dist/
+*.spec
+Backgound Music/
+Backgound/
+Characters/
+demo/*.mp4
+!demo/demo-60s.mp4
