@@ -1,6 +1,6 @@
 # 60-second pitch
 
-0–8s: “This is Drowsiness Detector, a Windows app that runs entirely on your PC.”
+0–8s: “This is Wakey Wakey lil bro: Drowsiness Detector, a Windows app that runs entirely on your PC.”
 
 8–17s: “Choose your webcam and calibrate with eyes open. We calculate eye aspect ratio locally.”
 

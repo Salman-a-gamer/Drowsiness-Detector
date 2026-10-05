@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QColor, QCursor, QFontDatabase, QPixmap
+from PySide6.QtGui import QColor, QCursor, QFontDatabase, QPixmap, QDesktopServices
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QColorDialog, QDialog, QFileDialog, QFormLayout,
@@ -22,6 +22,8 @@ from .overlay import MonsterOverlay, capture_desktops
 from .soundscape import build_soundscape
 from .scene_input import new_key_pressed, pressed_keys
 from .speech import DEFAULT_PHRASES, build_cache, cache_path, resolve_phrase
+from .branding import APP_TITLE
+from .identity import device_name, name_context, clean_name
 
 MAX_SCENE_MS = 15000
 VOICE_DELAY_MS = 2000
@@ -54,7 +56,7 @@ class ScenePanel(QDialog):
     preparation_changed = Signal(bool)
     def __init__(self, parent=None, data_dir: Path | None = None):
         super().__init__(parent)
-        self.setWindowTitle("Drowsiness Detector — scene studio")
+        self.setWindowTitle(APP_TITLE + ' — scene studio')
         self.resize(830, 740)
         self.data_dir = data_dir or app_data_dir()
         self.settings_path = self.data_dir / "config.json"
@@ -97,6 +99,7 @@ class ScenePanel(QDialog):
         studio_tabs.addTab(phrase_page, 'Phrases')
         studio_tabs.addTab(scene_page, 'Appearance & audio')
         form = QFormLayout()
+        self.asset_fields = {}
         for key, label, filters in (
             ("image", "Monster image", "Images (*.png *.jpg *.jpeg *.webp)"),
             ("background", "Background image (optional)", "Images (*.png *.jpg *.jpeg *.webp)"),
@@ -106,6 +109,7 @@ class ScenePanel(QDialog):
         ):
             row = QHBoxLayout()
             field = QLineEdit(self.settings[key])
+            self.asset_fields[key] = field
             field.setCursorPosition(0)
             field.setToolTip(self.settings[key])
             field.textChanged.connect(field.setToolTip)
@@ -123,6 +127,7 @@ class ScenePanel(QDialog):
                            ("music_folder", "Music folder")):
             row = QHBoxLayout()
             field = QLineEdit(self.settings[key])
+            self.asset_fields[key] = field
             field.setCursorPosition(0)
             field.setToolTip(self.settings[key])
             field.textChanged.connect(field.setToolTip)
@@ -133,6 +138,14 @@ class ScenePanel(QDialog):
             row.addWidget(field, 1)
             row.addWidget(button)
             form.addRow(label, row)
+        folders = QHBoxLayout()
+        open_assets = QPushButton('Open default asset folders')
+        open_assets.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.data_dir / 'assets'))))
+        reset_assets = QPushButton('Use default assets')
+        reset_assets.clicked.connect(self.restore_default_assets)
+        folders.addWidget(open_assets)
+        folders.addWidget(reset_assets)
+        form.addRow(folders)
         for key, label in (("flashing", "Irregular flashing / black frames"),
                            ("desktop_glitch", "Glitch real desktop briefly (memory only)"),
                            ("random_assets", "Pick random monsters, backgrounds and music from folders")):
@@ -159,6 +172,12 @@ class ScenePanel(QDialog):
         self.phrase_list.currentItemChanged.connect(self.select_item)
         self.phrase_list.itemChanged.connect(self.toggle_phrase)
         phrase_layout.addWidget(self.phrase_list, 1)
+        bulk = QHBoxLayout()
+        for label, enabled in (('Select all', True), ('Unselect all', False)):
+            button = QPushButton(label)
+            button.clicked.connect(lambda checked=False, enabled=enabled: self.set_all_phrases(enabled))
+            bulk.addWidget(button)
+        phrase_layout.addLayout(bulk)
         buttons = QHBoxLayout()
         for label, callback in (("Add", self.new_phrase), ("Edit", self.edit_phrase), ("Delete", self.delete_phrase)):
             button = QPushButton(label)
@@ -188,6 +207,20 @@ class ScenePanel(QDialog):
         editor_buttons.addWidget(save)
         editor_buttons.addWidget(self.phrase_preview)
         phrase_layout.addLayout(editor_buttons)
+        identity_row = QHBoxLayout()
+        self.personalization = QCheckBox('Use {name} in phrases')
+        self.personalization.setChecked(self.settings['personalization_enabled'])
+        self.personalization.toggled.connect(lambda value: self.setting_changed('personalization_enabled', value))
+        self.user_name = QLineEdit(self.settings['user_name'])
+        self.user_name.setMaxLength(24)
+        self.user_name.setPlaceholderText('Optional name, stays on this PC')
+        self.user_name.editingFinished.connect(lambda: self.setting_changed('user_name', clean_name(self.user_name.text())))
+        autofill = QPushButton('Use Windows name')
+        autofill.clicked.connect(self.autofill_name)
+        identity_row.addWidget(self.personalization)
+        identity_row.addWidget(self.user_name, 1)
+        identity_row.addWidget(autofill)
+        phrase_layout.addLayout(identity_row)
         self.message = QLabel("Preparing speech…")
         self.message.setWordWrap(True)
         root.addWidget(self.message)
@@ -227,7 +260,28 @@ class ScenePanel(QDialog):
         return player, output
 
     def current_context(self):
-        return {"time": datetime.now().strftime("%I:%M %p").lstrip("0"), **self.context}
+        return {"time": datetime.now().strftime("%I:%M %p").lstrip("0"), **self.context, **name_context(self.settings)}
+
+    def autofill_name(self):
+        name = device_name()
+        self.user_name.setText(name)
+        self.setting_changed('user_name', name)
+        self.message.setText('Windows account name suggested. Edit it if needed, then enable {name} phrases.')
+
+    def set_all_phrases(self, enabled):
+        for phrase in self.settings['phrases']:
+            phrase['enabled'] = enabled
+        self.refresh_list()
+        self.persist()
+        self.schedule_speech()
+
+    def restore_default_assets(self):
+        root = self.data_dir / 'assets'
+        defaults = dict(image=str(root / 'monsters/shadow-monster.svg'), background='',
+            music=str(root / 'music/midnight-signal.wav'), monster_folder=str(root / 'monsters'),
+            background_folder=str(root / 'backgrounds'), music_folder=str(root / 'music'))
+        for key, value in defaults.items():
+            self.asset_fields[key].setText(value)
 
     def refresh_context(self):
         context = self.current_context()
@@ -264,7 +318,7 @@ class ScenePanel(QDialog):
     def setting_changed(self, key, value):
         self.settings[key] = value
         self.persist()
-        if key == "voice":
+        if key in ("voice", 'user_name', 'personalization_enabled'):
             self.schedule_speech()
         elif key == "font":
             self.load_font()

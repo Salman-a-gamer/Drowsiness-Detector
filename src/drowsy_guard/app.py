@@ -6,9 +6,9 @@ from pathlib import Path
 
 import cv2
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QImage, QPixmap, QIcon, QKeySequence
 from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDialog,
-    QFormLayout, QHBoxLayout, QLabel, QMainWindow, QPushButton, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QScrollArea)
+    QFormLayout, QHBoxLayout, QLabel, QMainWindow, QPushButton, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QScrollArea, QCheckBox, QKeySequenceEdit)
 
 from .activity import active_window_title
 from .camera import CameraWorker, CameraScan
@@ -16,6 +16,8 @@ from .config import PROJECT
 from .detection import EyeClosureTracker
 from .monitoring import ScareGate
 from .scene import ScenePanel
+from .branding import APP_TITLE
+from .hotkey import GlobalScareHotkey
 
 STYLE = '''
 QWidget { background: #10131b; color: #e4e8f1; font-family: 'Segoe UI'; font-size: 13px; }
@@ -36,7 +38,8 @@ QScrollArea { border: none; } QCheckBox { padding: 4px; }
 class DrowsyGuardWindow(QMainWindow):
     def __init__(self, model_path=None, data_dir=None, *, scan_on_start=True):
         super().__init__()
-        self.setWindowTitle('Drowsiness Detector')
+        self.setWindowTitle(APP_TITLE)
+        self.setWindowIcon(QIcon(str(PROJECT / 'assets/icons/wakey-icon.ico')))
         self.resize(1100, 800)
         self.setStyleSheet(STYLE)
         self.model_path = Path(model_path or PROJECT / 'models/face_landmarker.task')
@@ -54,7 +57,8 @@ class DrowsyGuardWindow(QMainWindow):
         root = QVBoxLayout()
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(16)
-        title = QLabel('Drowsiness Detector')
+        title = QLabel(APP_TITLE)
+        title.setWordWrap(True)
         title.setObjectName('title')
         root.addWidget(title)
         privacy = QLabel('LOCAL BY DESIGN  •  Webcam video is never saved or uploaded. Speech stays on your PC.')
@@ -118,12 +122,30 @@ class DrowsyGuardWindow(QMainWindow):
         self.activity_label = QLabel('Active window context: waiting for another app')
         self.activity_label.setObjectName('muted')
         layout.addWidget(self.activity_label)
+        self.hotkey_manager = GlobalScareHotkey(self.trigger_hotkey)
+        shortcut_row = QHBoxLayout()
+        self.hotkey_enabled = QCheckBox('Enable global scare shortcut')
+        self.hotkey_enabled.setChecked(self.settings['hotkey_enabled'])
+        self.hotkey_edit = QKeySequenceEdit(QKeySequence(self.settings['hotkey']))
+        self.hotkey_edit.setMaximumSequenceLength(1)
+        shortcut_save = QPushButton('Save shortcut')
+        shortcut_save.clicked.connect(self.apply_hotkey)
+        self.hotkey_enabled.toggled.connect(self.apply_hotkey)
+        shortcut_row.addWidget(self.hotkey_enabled)
+        shortcut_row.addWidget(self.hotkey_edit, 1)
+        shortcut_row.addWidget(shortcut_save)
+        layout.addLayout(shortcut_row)
+        self.hotkey_status = QLabel('Shortcut disabled. Works across apps while this app is running.')
+        self.hotkey_status.setWordWrap(True)
+        layout.addWidget(self.hotkey_status)
         tabs.addTab(monitor, 'Monitor')
         tabs.addTab(self.scene_panel, 'Scene studio')
         about = QLabel('Everything runs on this PC.\n\nWebcam frames are processed in memory and discarded.\n'
                        'Desktop glitch pixels are discarded after the intro.\n'
                        'Window titles are read locally; no activity log is kept.\n'
                        'Contextual phrases and their audio cache can contain a window title.\n'
+                       'Name personalization is optional. Your chosen name may appear in cached speech.\n'
+                       'Global shortcuts use Windows registration, not keystroke recording.\n'
                        'Delete the local cache to remove these files.\n\n'
                        'Move the mouse or press any key to dismiss a scare.\nMaximum scene length: 15 seconds.\n\n'
                        'An experimental hackathon project, not a medical device.')
@@ -143,6 +165,8 @@ class DrowsyGuardWindow(QMainWindow):
         self.activity_timer = QTimer(self)
         self.activity_timer.timeout.connect(self.poll_activity)
         self.activity_timer.start(1000)
+        if self.settings['hotkey_enabled']:
+            self.apply_hotkey()
         # Scan after the event loop starts so opening the window stays responsive.
         if scan_on_start:
             QTimer.singleShot(0, self.scan_cameras)
@@ -157,6 +181,29 @@ class DrowsyGuardWindow(QMainWindow):
             self.activity_label.setText(f'Active window: {title} • stays local')
             if not self.gate.active and not self.scene_panel.overlays:
                 self.scene_panel.context = {'app': title}
+
+    def apply_hotkey(self):
+        enabled = self.hotkey_enabled.isChecked()
+        text = self.hotkey_edit.keySequence().toString(QKeySequence.SequenceFormat.PortableText)
+        try:
+            self.hotkey_manager.configure(text, enabled)
+        except ValueError as exc:
+            self.hotkey_status.setText(str(exc))
+            self.hotkey_enabled.blockSignals(True)
+            self.hotkey_enabled.setChecked(self.hotkey_manager.active_id is not None)
+            self.hotkey_enabled.blockSignals(False)
+            return
+        self.settings.update(hotkey=text, hotkey_enabled=enabled)
+        self.scene_panel.persist()
+        self.hotkey_status.setText(f'{text} launches a random scare across apps while this app is running.'
+                                  if enabled else 'Shortcut disabled.')
+
+    def trigger_hotkey(self):
+        focus = QApplication.focusWidget()
+        if focus is self.hotkey_edit or (focus is not None and self.hotkey_edit.isAncestorOf(focus)):
+            return  # Recording/editing the shortcut must never launch a scare.
+        if not self.scene_panel.overlays and not self.scene_panel.pending_scare:
+            self.test_scare()
 
     def duration_changed(self, value):
         self.tracker.closure_duration = value
@@ -309,6 +356,7 @@ class DrowsyGuardWindow(QMainWindow):
             self.model_path = Path(path)
 
     def closeEvent(self, event):
+        self.hotkey_manager.close()
         self.activity_timer.stop()
         self.stop_camera()
         if self.worker:
@@ -321,7 +369,7 @@ class DrowsyGuardWindow(QMainWindow):
 
 def run(model_path=None):
     app = QApplication(sys.argv)
-    app.setApplicationName('Drowsiness Detector')
+    app.setApplicationName(APP_TITLE)
     testing = '--self-test' in sys.argv
     data_dir = Path(sys.argv[sys.argv.index('--data-dir')+1]) if '--data-dir' in sys.argv else None
     window = DrowsyGuardWindow(model_path, data_dir=data_dir, scan_on_start=not testing)
@@ -350,6 +398,15 @@ def run(model_path=None):
                 model = mp.tasks.vision.FaceLandmarker.create_from_options(mp.tasks.vision.FaceLandmarkerOptions(
                     base_options=mp.tasks.BaseOptions(model_asset_path=str(window.model_path)), num_faces=1))
                 model.close()
+                import numpy as np
+                import cv2
+                # Exercise the packaged inference API, not just model loading.
+                inference = mp.tasks.vision.FaceLandmarker.create_from_options(mp.tasks.vision.FaceLandmarkerOptions(
+                    base_options=mp.tasks.BaseOptions(model_asset_path=str(window.model_path)), num_faces=1))
+                pixels = cv2.cvtColor(np.zeros((240, 320, 3), dtype=np.uint8), cv2.COLOR_BGR2RGB)
+                inference.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=pixels))
+                inference.close()
+                assert not window.windowIcon().isNull(), 'Packaged icon missing'
                 assert window.scene_panel.font_family == 'Creepster'
                 window.scene_panel.settings['desktop_glitch'] = False
                 window.scene_panel.preview_scene()

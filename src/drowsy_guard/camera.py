@@ -32,6 +32,7 @@ class CameraWorker(QThread):
             camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             while not self.stopping.is_set():
+                frame_started = time.monotonic()
                 ok, image = camera.read()
                 if not ok:
                     raise RuntimeError('Camera stopped returning frames.')
@@ -47,7 +48,8 @@ class CameraWorker(QThread):
                         p = landmarks[index]
                         cv2.circle(image, (int(p.x * image.shape[1]), int(p.y * image.shape[0])), 2, (80, 220, 160), -1)
                 self.frame.emit(image, ears, now)
-                self.stopping.wait(0.035)
+                # Cap inference at 15 fps; closure timing still uses real elapsed time.
+                self.stopping.wait(max(0, 1 / 15 - (time.monotonic() - frame_started)))
         except Exception as exc:
             self.failed.emit(str(exc))
         finally:

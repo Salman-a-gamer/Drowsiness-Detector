@@ -6,6 +6,7 @@ import os
 import random
 import uuid
 import sys
+import shutil
 from pathlib import Path
 
 PROJECT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[2]))
@@ -61,27 +62,33 @@ def normalize_phrases(phrases) -> list[dict]:
 
 def load_config(folder: Path | None = None) -> dict:
     folder = folder or app_data_dir()
-    music_folder = next((folder for folder in (PROJECT / "Backgound Music", PROJECT / "Backgound") if folder.is_dir()),
-                        PROJECT / "Backgound Music")
-    music_files = asset_files(music_folder, AUDIO_TYPES)
-    music = next((path for path in music_files if "Five Nights" in path.name), next(iter(music_files), None))
-    image_folder = PROJECT / "Characters"
-    image = image_folder / "Sample_character_pic-noBG.png"
-    if not image.is_file():
-        image = PROJECT / "Sample_character_pic-noBG.png"
-    if not image.is_file():
-        image = PROJECT / 'assets/monster.svg'
+    asset_root = folder / 'assets'
+    for kind in ('monsters', 'backgrounds', 'music'):
+        destination = asset_root / kind
+        destination.mkdir(parents=True, exist_ok=True)
+        bundled = PROJECT / 'assets' / kind
+        if bundled.is_dir():
+            for file in bundled.iterdir():
+                if file.is_file() and not (destination / file.name).exists():
+                    shutil.copy2(file, destination / file.name)
+    image_folder = asset_root / 'monsters'
+    image = image_folder / 'shadow-monster.svg'
+    if not image.exists():
+        shutil.copy2(PROJECT / 'assets/monster.svg', image)
+    music_folder = asset_root / 'music'
+    music = music_folder / 'midnight-signal.wav'
     config = dict(image=str(image), background="", color="#ffffff",
-                  music=str(music) if music else "", voice=str(PROJECT / "models/voices/en_US-ryan-medium.onnx"),
+                  music=str(music) if music.exists() else "", voice=str(PROJECT / "models/voices/en_US-ryan-medium.onnx"),
                   font=str(PROJECT / "assets/fonts/Creepster-Regular.ttf"), flashing=True,
                   music_volume=25, speech_volume=80, effects_volume=35, desktop_glitch=True,
-                  random_assets=True, monster_folder=str(image_folder), background_folder="",
+                  random_assets=True, monster_folder=str(image_folder), background_folder=str(asset_root / 'backgrounds'),
                   music_folder=str(music_folder),
-                  phrase_catalog_version=3, closure_duration=1.5, cooldown=20.0, camera_index=0, ear_threshold=0.21,
+                  phrase_catalog_version=4, closure_duration=1.5, cooldown=20.0, camera_index=0, ear_threshold=0.21,
+                  hotkey='Ctrl+Alt+J', hotkey_enabled=False, personalization_enabled=False, user_name='',
                   phrases=default_phrases())
     source = folder / "config.json"
     saved = {}
-    if not source.exists():
+    if not source.exists() and folder == app_data_dir():
         source = PROJECT / "settings/scene.json"
     try:
         saved = json.loads(source.read_text(encoding="utf-8"))
@@ -92,7 +99,7 @@ def load_config(folder: Path | None = None) -> dict:
         pass
     config["phrases"] = normalize_phrases(config["phrases"])
     version = saved.get('phrase_catalog_version', 0) if isinstance(saved, dict) else 0
-    if not isinstance(version, int) or version < 3:
+    if not isinstance(version, int) or version < 4:
         existing = {entry['text'] for entry in config['phrases']}
         additions = [entry for entry in default_phrases() if entry['text'] not in existing]
         if not any(entry['enabled'] for entry in config['phrases']):
@@ -100,7 +107,7 @@ def load_config(folder: Path | None = None) -> dict:
                 entry['enabled'] = False
         config['phrases'].extend(additions)
         config['phrases'] = normalize_phrases(config['phrases'])
-        config['phrase_catalog_version'] = 3
+        config['phrase_catalog_version'] = 4
     # Repair paths when the user reorganizes supplied assets into these folders.
     for key, directories in (("image", [image_folder]), ("music", [music_folder])):
         old = Path(config[key])
@@ -110,6 +117,17 @@ def load_config(folder: Path | None = None) -> dict:
                 config[key] = str(replacement)
             elif key == 'image':
                 config[key] = str(image)
+            elif config[key]:
+                config[key] = str(music) if music.exists() else ''
+    for key, default in (('monster_folder', image_folder), ('background_folder', asset_root / 'backgrounds'),
+                         ('music_folder', music_folder)):
+        if not config[key] or not Path(config[key]).is_dir():
+            config[key] = str(default)
+    # A relocated/deleted older build must not strand its model/font paths.
+    for key, default in (('voice', PROJECT / 'models/voices/en_US-ryan-medium.onnx'),
+                         ('font', PROJECT / 'assets/fonts/Creepster-Regular.ttf')):
+        if not Path(config[key]).is_file():
+            config[key] = str(default)
     return config
 
 

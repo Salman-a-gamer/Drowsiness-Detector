@@ -19,6 +19,7 @@ import imageio_ffmpeg
 from drowsy_guard.app import DrowsyGuardWindow
 from drowsy_guard.config import PROJECT
 from drowsy_guard.overlay import MonsterOverlay
+from drowsy_guard.branding import APP_TITLE
 
 def wait(ms):
     loop = QEventLoop()
@@ -76,7 +77,7 @@ with tempfile.TemporaryDirectory(dir=PROJECT/'cache') as temp:
     for index in range(720):
         second = index/12
         if second < 8:
-            shot, caption = snapshots[0], 'Drowsiness Detector • local drowsiness detection for Windows'
+            shot, caption = snapshots[0], APP_TITLE
         elif second < 17:
             shot, caption = snapshots[1], 'Start monitoring, calibrate open eyes, and choose a closure duration'
         elif second < 24:

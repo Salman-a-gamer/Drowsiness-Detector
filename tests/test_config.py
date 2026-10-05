@@ -51,10 +51,49 @@ class ConfigTests(unittest.TestCase):
             (root / 'config.json').write_text(json.dumps(dict(phrase_catalog_version=2,
                 phrases=[dict(id='mine', text='My phrase', enabled=False, audio_file='mine.wav')])))
             config = load_config(root)
-            self.assertEqual(config['phrase_catalog_version'], 3)
+            self.assertEqual(config['phrase_catalog_version'], 4)
             self.assertFalse(any(p['enabled'] for p in config['phrases']))
             self.assertEqual(config['phrases'][0]['audio_file'], 'mine.wav')
             self.assertGreaterEqual(sum('{app}' in p['text'] for p in config['phrases']), 5)
+
+    def test_default_assets_are_writable_seeded_and_not_overwritten(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as temporary:
+            root = Path(temporary)
+            config = load_config(root)
+            for key in ('monster_folder', 'background_folder', 'music_folder'):
+                path = Path(config[key])
+                self.assertTrue(path.is_dir())
+                self.assertTrue(path.is_relative_to(root))
+            self.assertTrue(Path(config['image']).is_file())
+            self.assertTrue(Path(config['music']).is_file())
+            self.assertFalse(config['personalization_enabled'])
+            music = Path(config['music'])
+            music.write_bytes(b'my replacement')
+            load_config(root)
+            self.assertEqual(music.read_bytes(), b'my replacement')
+
+    def test_valid_custom_folders_are_preserved(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as temporary:
+            root = Path(temporary)
+            custom = root / 'my-media'
+            custom.mkdir()
+            config = load_config(root)
+            config.update(monster_folder=str(custom), background_folder=str(custom), music_folder=str(custom))
+            save_config(config, root)
+            restored = load_config(root)
+            self.assertEqual(restored['monster_folder'], str(custom))
+            self.assertEqual(restored['music_folder'], str(custom))
+
+    def test_paths_from_removed_build_recover_to_bundled_defaults(self):
+        from drowsy_guard.config import PROJECT
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as temporary:
+            root = Path(temporary)
+            config = load_config(root)
+            config.update(voice=str(root / 'removed/voice.onnx'), font=str(root / 'removed/font.ttf'))
+            save_config(config, root)
+            restored = load_config(root)
+            self.assertEqual(restored['voice'], str(PROJECT / 'models/voices/en_US-ryan-medium.onnx'))
+            self.assertEqual(restored['font'], str(PROJECT / 'assets/fonts/Creepster-Regular.ttf'))
 
     def test_bad_config_does_not_crash_and_text_is_limited(self):
         self.assertEqual(normalize_phrases([None, {}, dict(text=4)]), [])

@@ -14,12 +14,21 @@ Prerequisites: Windows and Python 3.13. Use PowerShell in the root; quote paths 
 py -3.13 -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
 .\.venv\Scripts\python tools/setup_models.py
+.\.venv\Scripts\python tools/prepare_assets.py
 $env:PYTHONPATH = "$PWD\src"
 .\.venv\Scripts\python -m drowsy_guard
 .\.venv\Scripts\python -m unittest discover -s tests -v
 ```
 
 The toolchain is OpenCV, MediaPipe, PySide6, NumPy, Piper, mss and unittest. Font refresh: `.\.venv\Scripts\python tools/fetch_font.py`. Piper requires matching .onnx and .onnx.json files.
+
+Install only opencv-contrib-python, which MediaPipe requires; do not also install
+opencv-python/headless wheels into the same environment because they share cv2.
+For an older environment with duplicate OpenCV wheels, repair with
+`.\.venv\Scripts\python -m pip uninstall -y opencv-python` followed by
+`.\.venv\Scripts\python -m pip install --force-reinstall --no-deps opencv-contrib-python==5.0.0.93`.
+Matplotlib/Pillow are still required by MediaPipe's eager imports; do not exclude
+them from a build. Camera inference is capped at 15 fps using monotonic time.
 
 ```powershell
 .\.venv\Scripts\python -m pip install -r requirements-build.txt
@@ -28,9 +37,11 @@ The toolchain is OpenCV, MediaPipe, PySide6, NumPy, Piper, mss and unittest. Fon
 .\.venv\Scripts\python tools/make_readme_preview.py
 ```
 
-The desktop build is `dist/DrowsinessDetector/DrowsinessDetector.exe`; preserve the entire folder. Build uses PyInstaller windowed onedir mode. Demos use simulated eye readings and original/generated media, never a personal webcam recording. README preview is a six-second GIF/MP4 with 1.5 seconds of the home UI then the scare. Portable GitHub CLI may live in ignored `.tools/`. Public repo: Salman-a-gamer/Drowsiness-Detector.
+The desktop build is `dist/WakeyWakeyLilBro/WakeyWakeyLilBro.exe`; preserve the entire folder. Build uses PyInstaller windowed onedir mode, targeted data/binary collection, and excludes optional training/server/dev libraries. Personal Characters/music folders are never bundled. Demos use simulated eye readings and original/generated media. README preview is a six-second GIF/MP4 with 1.5 seconds of the home UI then the scare. Portable GitHub CLI may live in ignored `.tools/`. Public repo: Salman-a-gamer/Wakey-Wakey-lil-bro. App title: Wakey Wakey lil bro: Drowsiness Detector.
 
 ## Style and invariants
+
+`branding.py` holds identity. `hotkey.py` uses RegisterHotKey with MOD_NOREPEAT; release registrations on exit and preserve the prior shortcut on conflicts. `identity.py` provides opt-in local name suggestions; read account name only on autofill request. `config.py` seeds writable APPDATA/WakeyMonster/assets/{monsters,backgrounds,music} without overwriting user files or valid custom paths. Original default audio is CC0; icon prompt/provenance is in assets/icons/README.md. Name/title facts may be present in local WAV caches; do not upload them.
 
 Use four-space indentation, snake_case functions/modules and PascalCase classes. Keep pure logic separate from widgets. Use descriptive lowercase asset names for new files and preserve existing ones. Generate speech/effects on workers, never during scare playback. Camera reads and inference run on a QThread. Store phrases as JSON, display every playable phrase, and never inject hidden fallback speech. All disabled means no voice. Cooldown requires reopening eyes. Stop cancels pending scene/audio, and dismissal stops every scene timer/player.
 
@@ -46,6 +57,8 @@ Use unittest test_*.py for timing, cooldown, migration, phrase selection, cache 
 $env:QT_QPA_PLATFORM = 'offscreen'
 .\.venv\Scripts\python tests/scene_smoke.py
 .\.venv\Scripts\python tests/desktop_smoke.py
+.\.venv\Scripts\python tests/hotkey_smoke.py
+.\.venv\Scripts\python tests/camera_smoke.py 0
 Remove-Item Env:QT_QPA_PLATFORM
 ```
 

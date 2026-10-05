@@ -11,10 +11,13 @@
 - `speech.py` / `soundscape.py`: hashed stereo Piper speech and synthesized horror sound bed.
 - `config.py`: versioned phrase catalog, migration, settings and assets.
 - `activity.py`: foreground window title; excludes this app's own windows.
+- `hotkey.py`: Windows global shortcut registration, conflict handling and cleanup; no keyboard log.
+- `identity.py`: opt-in name context and user-requested account-name autofill.
+- `branding.py`: shared app title and packaging identity.
 
 ## Behavior
 
-Settings migrate from the earlier project-local config into APPDATA. Catalog version 3 includes 19 defaults and adds four app-context lines without deleting custom phrases. Existing all-disabled preferences remain disabled. Every playable line appears in the list, with room for at least four rows. If no enabled/resolved audio is available, the scene has no speech. When only the previously spoken line is eligible, that scene is silent; the next scene may speak it again.
+Settings migrate from the earlier project-local config into APPDATA. Catalog version 4 includes 22 defaults, including three optional name lines, without deleting custom phrases. Existing all-disabled preferences remain disabled. Select all / Unselect all work in one action. Every playable line appears in the list, with room for at least four rows. If no enabled/resolved audio is available, the scene has no speech. When only the previously spoken line is eligible, that scene is silent; the next scene may speak it again.
 
 Cameras scan on startup in a worker. Monitoring is disabled while scanning or when no usable cameras are found; manual scare testing remains available. The selected BGM replaces the generated horror bed. Without a usable BGM, the generated bed is the sole background audio. The voice is a separate track; there is no extra ambient player.
 
@@ -34,6 +37,9 @@ Context changes may require fresh speech: that runs in a worker before the overl
 8. Preview an unsaved edit, save, restart, and verify settings. Attach a valid recording.
 9. Switch to another app, then close eyes: a relevant title can populate `{app}`. No made-up `{seconds}` in manual previews.
 10. Stop while speech prepares: no scene appears later. Check actual speakers and all monitors.
+11. Enable a shortcut, switch apps and press it: one random scare. Hold keys: no repeats. Try an occupied shortcut: show an error and keep the previous combination. Exit: registration is released.
+12. Unselect all, restart and verify no voice. Enable optional name personalization, enter an edited name and preview a name phrase. Disable personalization: name phrases are skipped.
+13. Open default asset folders; confirm monster/music defaults, optional backgrounds, and writable folders. Restore defaults and verify only one BGM plays. Existing custom paths/files must survive an upgrade.
 
 Secure Windows prompts and some exclusive fullscreen apps cannot be covered. Mixed DPI capture placement and actual sound quality need hardware checks. The eye-flicker mask is tuned for the supplied character; other images may need different relative coordinates.
 

@@ -21,3 +21,10 @@ All of these lines are visible in Scene studio. Unknown placeholders are skipped
 - Keep staring at {app}. I'll stand behind you.
 - I was inside {app} before you opened it.
 - You opened {app}. You let me in.
+- {name}, I know when you close your eyes.
+- Don't turn around, {name}. You already know I'm here.
+- {name}, this screen isn't the only thing watching you.
+
+`{name}` is only supplied when the user enables personalization and provides a
+name. Windows autofill is an editable account-name suggestion, not a guaranteed
+real name. Missing names skip these lines.

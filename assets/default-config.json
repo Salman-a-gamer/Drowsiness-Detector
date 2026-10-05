@@ -18,6 +18,9 @@
     {"id": "p16", "text": "{app} can't hide you from me.", "enabled": true, "audio_file": null},
     {"id": "p17", "text": "Keep staring at {app}. I'll stand behind you.", "enabled": true, "audio_file": null},
     {"id": "p18", "text": "I was inside {app} before you opened it.", "enabled": true, "audio_file": null},
-    {"id": "p19", "text": "You opened {app}. You let me in.", "enabled": true, "audio_file": null}
+    {"id": "p19", "text": "You opened {app}. You let me in.", "enabled": true, "audio_file": null},
+    {"id": "p20", "text": "{name}, I know when you close your eyes.", "enabled": true, "audio_file": null},
+    {"id": "p21", "text": "Don't turn around, {name}. You already know I'm here.", "enabled": true, "audio_file": null},
+    {"id": "p22", "text": "{name}, this screen isn't the only thing watching you.", "enabled": true, "audio_file": null}
   ]
 }

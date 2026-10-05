@@ -31,6 +31,22 @@ with tempfile.TemporaryDirectory(dir=PROJECT/'cache') as folder:
         window.cameras_found([])
         assert window.camera_select.count() == 0 and not window.start_button.isEnabled()
         panel = window.scene_panel
+        panel.set_all_phrases(False)
+        assert not any(p['enabled'] for p in panel.settings['phrases'])
+        panel.set_all_phrases(True)
+        assert all(p['enabled'] for p in panel.settings['phrases'])
+        panel.settings.update(user_name='Alex', personalization_enabled=True)
+        assert panel.current_context()['name'] == 'Alex'
+        with patch.object(panel, 'request_scare', return_value=True) as request:
+            with patch('drowsy_guard.app.QApplication.focusWidget', return_value=window.hotkey_edit):
+                window.trigger_hotkey()
+                request.assert_not_called()
+            window.trigger_hotkey()
+            request.assert_called_once()
+            panel.pending_scare = True
+            window.trigger_hotkey()
+            request.assert_called_once()
+            panel.pending_scare = False
         assert panel.phrase_list.minimumHeight() >= 4 * panel.phrase_list.sizeHintForRow(0)
         tabs = window.centralWidget().findChildren(QTabWidget)[0]
         tabs.setCurrentIndex(1)
